@@ -83,6 +83,58 @@ const downloadBlob = (blob, filename) => {
   URL.revokeObjectURL(url);
 };
 
+const escapeHtml = (value) =>
+  value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+
+const buildArticleHtml = ({ title, author, summary, tags, bodyHtml }) => {
+  const safeTitle = escapeHtml(title);
+  const safeAuthor = author ? `<p class="meta"><strong>Author:</strong> ${escapeHtml(author)}</p>` : '';
+  const safeSummary = summary
+    ? `<p class="summary">${escapeHtml(summary)}</p>`
+    : '';
+  const tagList = tags.length
+    ? `<p class="meta"><strong>Tags:</strong> ${tags.map((tag) => escapeHtml(tag)).join(', ')}</p>`
+    : '';
+
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${safeTitle}</title>
+    <style>
+      body { margin: 0; font-family: Inter, system-ui, -apple-system, sans-serif; background: #f7f9fc; color: #172033; }
+      main { max-width: 860px; margin: 0 auto; padding: 2rem 1rem 3rem; }
+      article { background: #fff; border: 1px solid #d7dfef; border-radius: 14px; padding: 1.3rem 1.2rem; }
+      h1 { margin-top: 0; }
+      .summary { color: #42506b; }
+      .meta { margin: 0.35rem 0; color: #32415e; font-size: 0.95rem; }
+      hr { border: 0; border-top: 1px solid #d7dfef; margin: 1rem 0 1.2rem; }
+      pre { background: #0f172a; color: #dde7ff; padding: 0.8rem; border-radius: 8px; overflow-x: auto; }
+      blockquote { margin: 1rem 0; padding: 0.7rem 0.9rem; border-left: 4px solid #265ee9; background: #eef3ff; }
+      img { max-width: 100%; height: auto; border-radius: 8px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <article>
+        <h1>${safeTitle}</h1>
+        ${safeSummary}
+        ${safeAuthor}
+        ${tagList}
+        <hr />
+        ${bodyHtml}
+      </article>
+    </main>
+  </body>
+</html>`;
+};
+
 downloadButton.addEventListener('click', async () => {
   try {
     statusField.textContent = 'Preparing zip...';
@@ -109,26 +161,38 @@ downloadButton.addEventListener('click', async () => {
       });
     }
 
+    const tags = tagsInput.value
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+
+    const renderedBody = marked.parse(bodyInput.value.trim() || '# Untitled Article');
+
     const articleData = {
       title: titleInput.value.trim(),
       slug,
       author: authorInput.value.trim() || null,
       summary: summaryInput.value.trim() || null,
-      tags: tagsInput.value
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter(Boolean),
+      tags,
       createdAt: new Date().toISOString(),
-      format: 'markdown',
-      bodyFile: 'article.md',
+      format: 'html',
+      bodyFile: 'article.html',
       images: imageManifest,
     };
 
-    articleFolder.file('article.md', bodyInput.value.trim() || '# Untitled Article');
+    const articleHtml = buildArticleHtml({
+      title: titleInput.value.trim(),
+      author: authorInput.value.trim(),
+      summary: summaryInput.value.trim(),
+      tags,
+      bodyHtml: renderedBody,
+    });
+
+    articleFolder.file('article.html', articleHtml);
     articleFolder.file('article.json', JSON.stringify(articleData, null, 2));
     articleFolder.file(
       'README.txt',
-      `Unzip this folder into your repository's /articles/ directory.\n\nExpected path:\n/articles/${slug}/article.json\n/articles/${slug}/article.md\n/articles/${slug}/assets/*\n`
+      `Unzip this folder into your repository's /articles/ directory.\n\nExpected path:\n/articles/${slug}/article.json\n/articles/${slug}/article.html\n/articles/${slug}/assets/*\n`
     );
 
     const output = await zip.generateAsync({ type: 'blob' });

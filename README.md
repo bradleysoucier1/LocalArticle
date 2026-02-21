@@ -4,16 +4,16 @@ A single-page, no-server tool for creating wiki-style article packages.
 
 ## What it does
 
-- Write article content in Markdown.
+- Write article content (Markdown input) and export a ready HTML article page.
 - Use one-click snippets for specialized blocks (tips, warnings, code, and image links).
 - Attach local image files.
 - Click **Download Article (.zip)** to export a folder package ready for `/articles/`.
 
 ## Output structure
 
-The downloaded zip contains:
+The downloaded zip contains (wiki-ready HTML output):
 
-- `<slug>/article.md`
+- `<slug>/article.html`
 - `<slug>/article.json`
 - `<slug>/assets/*`
 - `<slug>/README.txt`
